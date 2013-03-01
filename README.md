@@ -1,2 +1,5 @@
+Converts svg/png files to css files with dataURLs
+with naming style as b-ico-%filename%
+
 Usage:
-ruby img2css.rb %targetDir% %targetStyle%
+ruby make.rb %targetDir% %targetStyle%
