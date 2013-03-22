@@ -6,6 +6,7 @@ with naming style as b-ico-%filename%
 https://github.com/ikondrat/img2css
 
 ## Usage
+```shell
 ruby make.rb --source-dir=path [OPTIONS..]
 
 OPTIONS:
@@ -16,3 +17,4 @@ OPTIONS:
 --result-name            Base name for generated files
 --css-name               Base name for generated css rule
 --help                   HELP
+```
