@@ -1,8 +1,14 @@
 #!/usr/bin/ruby
 require 'base64'
 $logEnabled = false
+$oldieSupported = true
+$resDir=""
+$resName="icons-base64"
+$cssName=".b-ico-"
 $maxSize = 32000
-
+$sourceDir = false
+# generate combo file (png and svg)
+$useComboData = false
 def log( txt )
     if $logEnabled
         print "\n#{txt}\n"
@@ -10,21 +16,29 @@ def log( txt )
 end
 
 def getCSSFromDir( dir )
+    data = {}
     # mind the start dir
-#    puts Dir.pwd
     Dir.chdir( dir ) do
         log("Parsing dir: [ #{dir} ]")
         result = ""
-        Dir["*.png"].sort.each { | f |
-            baseName = File.basename( f, File.extname( f ) )
+        Dir["*.{png,gif,svg}"].sort.each { | f |
 
-            type = File.file?( "#{baseName}.svg" ) ? "svg" : "png";
+            d = getDataByImage( f )
 
-            result += getCssFromImage( f, type )
+            if d
+                item = data[ d["name"] ]
+                if item
+                    d.each {|key, value|
+                        item[key] = value
+                    }
+                else
+                    data[ d["name"] ] = d
+                end
+            end
         }
-        return result
     end 
     puts Dir.pwd
+    return data
 end
 
 def getBase64Content( file )
@@ -34,51 +48,177 @@ def getBase64Content( file )
 end
 
 def write2file( file, content )
-    prevContent = ""
-    if File.exists?(file) 
-        prevContent = File.open( file,'r'){|f| f.read}
-    end
-    File.open( file, 'w+' ){|i| i.write(prevContent + content)}
+    File.open( file, 'w+' ){|i| i.write(content)}
 end
 
-def getCssFromImage( file, type )
-    isSVG = type === "svg"
-    bName = File.basename( file, File.extname( file ))
-    base64line = getBase64Content( isSVG ? "#{bName}.svg" : file )
-    resType = isSVG ? "svg+xml" : type
+def getDataByImage( file )
 
-    res = "data:image/#{resType};base64,#{base64line}"
+    # get extension
+    ext = File.extname( file )
 
-    if res.length < $maxSize
-        c = ".b-ico-#{bName}"
-        fPath = "../../static/i/icons/#{file}"
-        baseStyle = "#{c} {background-image:url(#{res});}"
-        degradationStyle = ".no-data-url #{c} {background-image: url(#{fPath});}"
-        degradationStyleIE = "* html #{c} {background: none !important;-filter:progid:DXImageTransform.Microsoft.AlphaImageLoader(src='#{fPath}');}"
-        return "\n\n#{baseStyle}\n#{degradationStyle}\n#{degradationStyleIE}"
-    else
-        raise "Max DataURI length was exceeded on file #{file}"
+    # get basename of file
+    baseName = File.basename( file, ext)
+
+    # gettype of file
+    type = ext.slice(1, ext.length - 1)
+    isSVG = type == "svg"
+
+    data = {
+        "name" => baseName,
+        "type" => ext.slice(1, ext.length - 1)
+    };
+
+    if !isSVG 
+        data["bin-type"] = data["type"]
+    end
+
+    data[ isSVG ? "vector" : "binary" ] = getBase64Content( file )
+
+    return data
+
+end
+
+def getContent(key, data, type, degradationType)
+
+    cssClass = "#{$cssName}#{key}"
+
+    dataURL = data ? "data:image/#{type};base64,#{data}": ""
+
+    if (dataURL.length > 1 )
+        if dataURL.length < $maxSize
+            baseStyle = "#{cssClass} {background-image:url(#{dataURL});}"
+
+            if degradationType
+
+                path = "../../#{$sourceDir}/#{key}.#{degradationType}"
+                degradationStyle = "\n.no-data-url #{cssClass} {background-image: url(#{path});}"
+                if $oldieSupported
+                    degradationStyleIE = "\n* html #{cssClass} {background: none !important;-filter:progid:DXImageTransform.Microsoft.AlphaImageLoader(src='#{path}');}"
+                end
+
+            end
+            
+            return "#{baseStyle}#{degradationStyle}#{degradationStyleIE}\n\n"
+        else
+            raise "Max DataURI length was exceeded on file #{key}.#{type}"
+        end
     end
 
 end
 
-def main(path, cssFile)
+def main()
    
-    if !File.directory?( path )
-        raise "Directory [ #{path} ] doesn't exist"   
+    if !$sourceDir
+        raise "Please define location of icons by parameter --source-dir="   
     end 
 
-    if File.exists?( cssFile )
-        File.delete( cssFile )
-    end
-
-    res = getCSSFromDir( path )
+    res = getCSSFromDir( $sourceDir )
 
     if( res )
-        write2file( cssFile, res )
-        log "Result was written to #{cssFile}\n"
+        resBinary = ""
+        resVector = ""
+        resCombo= ""
+
+        res.each {|key, value| 
+
+            _resB = getContent(key, value['binary'], value['type'], value['type'])
+            _resV = value['vector'] ? getContent(
+                key, 
+                value['vector'], 
+                "svg+xml", 
+                _resB ? value['bin-type'] : nil
+            ) : ""
+
+            if value['binary'] 
+                resBinary += _resB
+            else
+                puts "WARNING!!!! Where is no degradation image file for #{key}.#{value['type']}"
+            end
+
+            resVector += _resV
+
+            if $useComboData
+                resCombo += value['vector'] ? _resV : _resB
+            end
+            
+        }
+
+        if resVector.length > 1
+            cssFileVector = "#{$resDir}#{$resName}.css"
+            vectorData = resCombo.length > 1 ? resCombo : resVector
+            write2file( cssFileVector, vectorData );
+            log "Result was written to #{cssFileVector}\n"
+        end
+
+        if resBinary.length > 1
+            cssFileBinary = "#{$resDir}#{$resName}.b.css"
+            write2file( cssFileBinary, resBinary );
+            log "Result was written to #{cssFileBinary}\n"
+        end
+
     end
 
 end
 
-main(ARGV[0], ARGV[1]);
+$helpMod = false
+ARGV.each do|a|
+    case a
+
+    when "--except-oldie"
+      $oldieSupported = false
+
+    when "--verbose"
+      $logEnabled = true
+
+    when "--make-combo"
+      $useComboData = true
+
+    when "--help"
+        $helpMod = true
+        space = "\t\t"
+        puts "Ruby script to generate css files with dataURLed images from directory"
+        puts "Usage options: --source-dir=path [OPTIONS..]"
+        puts "\nOPTIONS:"
+        puts "--make-combo #{space} Append dataURL from png to css with svg images if required svg file doesn't exist"
+        puts "--verbose #{space} Show detailed output"
+        puts "--except-oldie #{space} Don't append '-filter' degradation styles for old IE"
+        puts "--result-dir #{space} Folder where generated files will be stored"
+        puts "--result-name #{space} Base name for generated files"
+        puts "--css-name #{space} Base name for generated css rule"
+        puts "--help #{space}\t HELP"
+        break
+    end
+
+    sourceDir = a.match(/--source-dir=(\S+)\/?$/)
+    if sourceDir 
+        if !File.directory?( sourceDir[1] )
+            raise "Directory [ #{sourceDir[1]} ] doesn't exist" 
+        else
+            $sourceDir = sourceDir[1]
+        end
+    end
+
+    resDir = a.match(/--result-dir=(\S+)$/)
+    if resDir 
+        if !File.directory?( resDir[1] )
+            raise "Directory [ #{resDir[1]} ] doesn't exist" 
+        else
+            $resDir = resDir[1]
+        end 
+        
+    end
+
+    cssName = a.match(/--css-name=(\S+)$/)
+    if cssName 
+        $cssName = cssName[1]
+    end
+
+    resName = a.match(/--result-name=(\S+)$/)
+    if resName 
+        $resName = resName[1]
+    end
+end
+
+if !$helpMod
+    main()
+end
