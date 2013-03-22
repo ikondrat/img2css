@@ -1,4 +1,4 @@
-# Img to plain сss converter
+# From image to plain css converter
 Converts svg/png files to css files with dataURLs
 with naming style as b-ico-%filename%
 
