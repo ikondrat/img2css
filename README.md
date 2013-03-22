@@ -1,5 +1,5 @@
 # From image to plain css converter
-Converts svg/png files to css files with dataURLs
+Converts svg/png files to inline dataURLs
 with naming style as b-ico-%filename%
 
 ## Repo
