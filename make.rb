@@ -143,14 +143,14 @@ def main()
             
         }
 
-        if resVector.length > 1
+        if $useComboData || resVector.length > 1
             cssFileVector = "#{$resDir}#{$resName}.css"
             vectorData = resCombo.length > 1 ? resCombo : resVector
             write2file( cssFileVector, vectorData );
             log "Result was written to #{cssFileVector}\n"
         end
 
-        if resBinary.length > 1
+        if !$useComboData && resBinary.length > 1
             cssFileBinary = "#{$resDir}#{$resName}.b.css"
             write2file( cssFileBinary, resBinary );
             log "Result was written to #{cssFileBinary}\n"
