@@ -2,9 +2,11 @@
 Converts svg/png files to inline dataURLs
 with naming style as b-ico-%filename%
 
-It creates css file with images represented as dataURL with to options:
- 1. "make-combo mode" includes either svg and binary images(png/gif) in one file
- 2. "default mode" converts images into two files one with svg images only and another with binary images only.
+List of supported mime types: gif,png,svg
+
+It creates css files with images represented as dataURL and can be controlled by several available modes:
+ 1. "make-combo mode" includes either svg or binary images(png/gif) into one file
+ 2. "default mode" converts images into two separated css files: one with svg images only and another with binary images.
 
 ## Repo
 https://github.com/ikondrat/img2css
